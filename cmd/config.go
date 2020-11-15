@@ -164,6 +164,56 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 	return def
 }
 
+
+func parseOverrides(raw []interface{}, c *lib.Config) {
+	for _, v := range raw {
+		if o, ok := v.(map[interface{}]interface{}); ok {
+			override := &lib.Override{
+				Auth: c.Auth,
+				User: &lib.User{
+					Scope: c.User.Scope,
+					Modify: c.User.Modify,
+					Rules: []*lib.Rule{},
+					Handler: c.User.Handler,
+				},
+			}
+			rule := &lib.Rule{
+				Allow: false,
+			}
+
+			if auth, ok := o["auth"].(bool); ok {
+				override.Auth = auth
+			}
+
+			if modify, ok := o["modify"].(bool); ok {
+				override.User.Modify = modify
+			}
+
+			if allow, ok := o["allow"].(bool); ok {
+				rule.Allow = allow
+			}
+
+			path, ok := o["path"].(string)
+			if !ok {
+				continue
+			}
+
+			if regex, ok := o["regex"].(bool); ok {
+				rule.Regex = regex
+			}
+
+			if rule.Regex {
+				rule.Regexp = regexp.MustCompile(path)
+			} else {
+				rule.Path = path
+			}
+
+			override.User.Rules = append(override.User.Rules, rule)
+			c.Overrides = append(c.Overrides, override)
+		}
+	}
+}
+
 func readConfig(flags *pflag.FlagSet) *lib.Config {
 	cfg := &lib.Config{
 		User: &lib.User{
@@ -182,6 +232,7 @@ func readConfig(flags *pflag.FlagSet) *lib.Config {
 			Credentials: false,
 		},
 		Users: map[string]*lib.User{},
+		Overrides: []*lib.Override{},
 	}
 
 	rawRules := v.Get("rules")
@@ -197,6 +248,11 @@ func readConfig(flags *pflag.FlagSet) *lib.Config {
 	rawCors := v.Get("cors")
 	if cors, ok := rawCors.(map[string]interface{}); ok {
 		parseCors(cors, cfg)
+	}
+
+	rawOverrides := v.Get("overrides")
+	if overrides, ok := rawOverrides.([]interface{}); ok {
+		parseOverrides(overrides, cfg)
 	}
 
 	if len(cfg.Users) != 0 && !cfg.Auth {
