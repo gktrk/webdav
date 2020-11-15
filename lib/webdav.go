@@ -23,12 +23,22 @@ type Config struct {
 	Auth  bool
 	Cors  CorsCfg
 	Users map[string]*User
+	Overrides []*Override
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
 func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := c.User
 	requestOrigin := r.Header.Get("Origin")
+	var override *Override = nil
+
+	for _, o := range c.Overrides {
+		if !o.MatchURL(r.URL.Path) {
+			continue
+		}
+		override = o
+		u = o.User
+	}
 
 	// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
 	if c.Cors.Enabled && requestOrigin != "" {
@@ -66,7 +76,11 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authentication
-	if c.Auth {
+	auth := c.Auth
+	if override != nil {
+		auth = auth && override.Auth
+	}
+	if auth {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
 		// Gets the correct user for this request.
@@ -89,7 +103,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		u = user
-	} else {
+	} else if override == nil && !c.Auth {
 		// Even if Auth is disabled, we might want to get
 		// the user from the Basic Auth header. Useful for Caddy
 		// plugin implementation.
