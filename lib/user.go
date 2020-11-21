@@ -19,6 +19,7 @@ type Rule struct {
 type User struct {
 	Username string
 	Password string
+	ExtraPasswords []string
 	Scope    string
 	Modify   bool
 	Rules    []*Rule
@@ -45,4 +46,21 @@ func (u User) Allowed(url string) bool {
 	}
 
 	return true
+}
+
+func (u User) MatchPassword(input string) bool {
+	var passwords []string
+
+	passwords = append(passwords, u.Password)
+	for _, password := range u.ExtraPasswords {
+		passwords = append(passwords, password)
+	}
+
+	for _, password := range passwords {
+		if checkPassword(password, input) {
+			return true
+		}
+	}
+
+	return false
 }

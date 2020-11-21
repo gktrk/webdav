@@ -96,7 +96,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !checkPassword(user.Password, password) {
+		if !user.MatchPassword(password) {
 			log.Println("Wrong Password for user", username)
 			http.Error(w, "Not authorized", 401)
 			return

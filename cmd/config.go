@@ -69,6 +69,7 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 	var err error
 	for _, v := range raw {
 		if u, ok := v.(map[interface{}]interface{}); ok {
+			extra_passwords := []string{}
 			username, ok := u["username"].(string)
 			if !ok {
 				log.Fatal("user needs an username")
@@ -93,9 +94,16 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 				checkErr(err)
 			}
 
+			if raw_extra_passwords, ok := u["extra_passwords"].([]interface{}); ok {
+				for _, password := range raw_extra_passwords {
+					extra_passwords = append(extra_passwords, password.(string))
+				}
+			}
+
 			user := &lib.User{
 				Username: username,
 				Password: password,
+				ExtraPasswords: extra_passwords,
 				Scope:    c.User.Scope,
 				Modify:   c.User.Modify,
 				Rules:    c.User.Rules,
